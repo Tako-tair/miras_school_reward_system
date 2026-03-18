@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Miras Student Points System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">M</div>
+      <div>
+        <h1>Miras Points</h1>
+        <p>Teacher & Admin Panel</p>
+      </div>
+    </div>
+
+    <div class="login-box">
+      <h2>Teacher Login</h2>
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" value="teacher@miras-demo.com" />
+      <label for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" value="Miras2026!" />
+      <button id="loginBtn" class="btn btn-primary full">Login</button>
+      <p class="mini-note">Teachers will only see their own classes and students after login.</p>
+    </div>
+
+    <nav class="menu">
+      <button class="menu-link active" data-tab="dashboard">Dashboard</button>
+      <button class="menu-link" data-tab="students">Students</button>
+      <button class="menu-link" data-tab="leaderboard">Leaderboard</button>
+      <button class="menu-link" data-tab="history">History</button>
+      <button class="menu-link" data-tab="sheets">Google Sheets</button>
+    </nav>
+
+    <div class="side-card">
+      <h3>How data works</h3>
+      <p>Teachers log in with their email and password. The system checks Google Sheets, loads only the allowed classes, and shows only the relevant students.</p>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <section class="hero-card">
+      <div>
+        <span class="pill">Miras School Reward System</span>
+        <h2>Raise learning standards through discipline, progress tracking, and student growth.</h2>
+        <p>This platform helps teachers at Miras School track student behavior through a clear points system. Add rewards, assign penalties, analyze progress, and maintain fair evaluation across all classes. Designed for simplicity, transparency, and effective classroom management.</p>
+      </div>
+      <div class="hero-stats">
+        <div class="small-stat">
+          <strong id="teacherNameTop">Not logged in</strong>
+          <span>Current teacher</span>
+        </div>
+        <div class="small-stat pulse-box" id="syncBox">
+          <strong id="syncStatus">Waiting for login</strong>
+          <span>Google Sheets status</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls-card">
+      <div class="control-group">
+        <label for="classSelect">Class</label>
+        <select id="classSelect"></select>
+      </div>
+
+      <div class="control-group grow">
+        <label for="searchInput">Search student</label>
+        <input id="searchInput" type="text" placeholder="Type student name..." />
+      </div>
+
+      <div class="control-group">
+        <label for="studentSort">Sort students</label>
+        <select id="studentSort">
+          <option value="name-asc">Name A-Z</option>
+          <option value="name-desc">Name Z-A</option>
+          <option value="points-desc">Points High-Low</option>
+          <option value="points-asc">Points Low-High</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="periodFilter">Period</label>
+        <select id="periodFilter">
+          <option value="all">All time</option>
+          <option value="today">Today</option>
+          <option value="week">This week</option>
+          <option value="month">This month</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="stat-card">
+        <span>Students in view</span>
+        <strong id="statStudents">0</strong>
+      </article>
+      <article class="stat-card">
+        <span>Total points</span>
+        <strong id="statPoints">0</strong>
+      </article>
+      <article class="stat-card">
+        <span>Average score</span>
+        <strong id="statAverage">0</strong>
+      </article>
+      <article class="stat-card">
+        <span>Negative records</span>
+        <strong id="statNegative">0</strong>
+      </article>
+    </section>
+
+    <section class="tab-content active" id="tab-dashboard">
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Students</h3>
+              <p>Choose a student and assign points</p>
+            </div>
+          </div>
+          <div id="studentGrid" class="student-grid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Top 3 Leaderboard</h3>
+              <p>Competition mode enabled</p>
+            </div>
+          </div>
+          <div id="topThree" class="top-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-content" id="tab-students">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>All Students</h3>
+            <p>All available students for the logged-in teacher</p>
+          </div>
+        </div>
+        <div id="studentsTableWrap"></div>
+      </div>
+    </section>
+
+    <section class="tab-content" id="tab-leaderboard">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Leaderboard</h3>
+            <p>All students ranked by total points</p>
+          </div>
+        </div>
+
+        <div class="leaderboard-filters" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+          <div class="control-group" style="min-width:220px;">
+            <label for="leaderboardSearch">Search leaderboard</label>
+            <input id="leaderboardSearch" type="text" placeholder="Search by name..." />
+          </div>
+
+          <div class="control-group" style="min-width:220px;">
+            <label for="leaderboardSort">Sort leaderboard</label>
+            <select id="leaderboardSort">
+              <option value="points-desc">Points High-Low</option>
+              <option value="points-asc">Points Low-High</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="leaderboardTableWrap"></div>
+        <div id="leaderboardList"></div>
+      </div>
+    </section>
+
+    <section class="tab-content" id="tab-history">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>History</h3>
+            <p>Each teacher action becomes a new row in Google Sheets</p>
+          </div>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </section>
+
+    <section class="tab-content" id="tab-sheets">
+      <div class="content-grid two-equal">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Google Sheets structure</h3>
+              <p>Recommended tabs</p>
+            </div>
+          </div>
+          <div class="sheet-tags">
+            <span>Students</span>
+            <span>Actions</span>
+            <span>Teachers</span>
+            <span>Logs</span>
+            <span>Leaderboard</span>
+            <span>Rewards</span>
+            <span>RewardLogs</span>
+          </div>
+          <div class="sheet-explain">
+            <h4>How it should work</h4>
+            <ol>
+              <li>The website loads student names from the <strong>Students</strong> sheet.</li>
+              <li>The website loads action names and points from the <strong>Actions</strong> sheet.</li>
+              <li>The website loads teacher login and class access from the <strong>Teachers</strong> sheet.</li>
+              <li>When a teacher saves an action, the website sends it to Google Apps Script.</li>
+              <li>Apps Script writes a new row to the <strong>Logs</strong> sheet.</li>
+              <li>The website refreshes leaderboard, totals and filtered time-based views.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Access logic</h3>
+              <p>Teacher sees only allowed classes</p>
+            </div>
+          </div>
+          <div class="sheet-explain">
+            <p><strong>Teachers log in using email and password from the Teachers sheet.</strong></p>
+            <p>Each teacher has a <strong>classes</strong> field. Example:</p>
+            <ul>
+              <li><code>5A,5B,5C</code> means the teacher only sees these classes</li>
+              <li><code>ALL</code> means the user is admin and sees all classes</li>
+            </ul>
+            <p>This means there is no need to choose a teacher manually in the interface.</p>
+            <p>The logged-in teacher becomes the source of access rights for students, leaderboard and history.</p>
+            <p>Time filters can be used for today, this week, this month and all time analytics.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-backdrop hidden" id="modalBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <h3 id="modalTitle">Manage Points</h3>
+        <p id="modalSubtitle">Student details</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" id="undoBtn" type="button">Undo last</button>
+        <button id="closeModal" class="icon-btn" type="button">✕</button>
+      </div>
+    </div>
+
+    <div class="actions-grid" id="actionsGrid"></div>
+
+    <div class="selected-action-box">
+      <span>Selected action</span>
+      <strong id="selectedActionLabel">Helped Another Student</strong>
+      <b id="selectedActionPoints">+5</b>
+    </div>
+
+    <div class="field-block">
+      <label for="commentInput">Comment</label>
+      <input id="commentInput" type="text" placeholder="Example: helped classmate finish task" />
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" id="cancelBtn" type="button">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" type="button">Save and Sync</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
