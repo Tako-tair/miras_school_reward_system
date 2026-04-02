@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Miras School Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-1: #081426;
+      --bg-2: #123c74;
+      --glass: rgba(255,255,255,0.14);
+      --glass-strong: rgba(255,255,255,0.22);
+      --line: rgba(255,255,255,0.18);
+      --text: #ffffff;
+      --muted: rgba(255,255,255,0.78);
+      --primary: #4da3ff;
+      --primary-2: #2563eb;
+      --danger: #ff6b6b;
+      --shadow: 0 30px 80px rgba(0,0,0,0.35);
+      --radius: 28px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", sans-serif;
+      color: var(--text);
+      background:
+        linear-gradient(rgba(7, 16, 29, 0.50), rgba(7, 16, 29, 0.78)),
+        url("https://www.miras.kz/images/mainfon/newfon232-2.jpg") center/cover no-repeat fixed;
+      overflow: hidden;
+    }
+
+    .bg-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(18px);
+      opacity: 0.55;
+      pointer-events: none;
+      animation: floatOrb 12s ease-in-out infinite;
+    }
+
+    .orb-1 {
+      width: 340px;
+      height: 340px;
+      background: rgba(77, 163, 255, 0.20);
+      top: -70px;
+      left: -60px;
+    }
+
+    .orb-2 {
+      width: 380px;
+      height: 380px;
+      background: rgba(37, 99, 235, 0.18);
+      right: -100px;
+      bottom: -90px;
+      animation-delay: -4s;
+    }
+
+    .orb-3 {
+      width: 240px;
+      height: 240px;
+      background: rgba(255,255,255,0.08);
+      top: 18%;
+      right: 18%;
+      animation-delay: -7s;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1.15fr 0.95fr;
+      align-items: center;
+      gap: 36px;
+      padding: 36px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero {
+      padding: 24px;
+      animation: slideLeft 0.9s ease;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.10);
+      backdrop-filter: blur(16px);
+      border-radius: 999px;
+      font-size: 0.92rem;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4.8rem);
+      line-height: 0.97;
+      letter-spacing: -0.03em;
+      max-width: 720px;
+      text-shadow: 0 12px 35px rgba(0,0,0,0.24);
+    }
+
+    .hero p {
+      max-width: 640px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      line-height: 1.78;
+      font-size: 1.03rem;
+      text-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    }
+
+    .hero-points {
+      margin-top: 26px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hero-chip {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.16);
+      backdrop-filter: blur(12px);
+      font-size: 0.92rem;
+      color: rgba(255,255,255,0.92);
+    }
+
+    .login-wrap {
+      display: flex;
+      justify-content: center;
+      animation: slideUp 0.9s ease;
+    }
+
+    .login-card {
+      width: min(480px, 100%);
+      padding: 30px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.09));
+      border: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.14), transparent 40%, rgba(77,163,255,0.08));
+      pointer-events: none;
+    }
+
+    .floating-line {
+      position: absolute;
+      inset: auto 0 0 auto;
+      width: 180px;
+      height: 180px;
+      border-top: 1px solid rgba(255,255,255,0.14);
+      border-left: 1px solid rgba(255,255,255,0.14);
+      border-top-left-radius: 100%;
+      opacity: 0.5;
+      transform: translate(42px, 42px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-logo {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      box-shadow: 0 14px 32px rgba(37,99,235,0.34);
+    }
+
+    .brand h2 {
+      margin: 0;
+      font-size: 1.18rem;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .tabs {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 18px;
+      margin-bottom: 22px;
+    }
+
+    .tab-btn {
+      border: 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+      transition: 0.25s ease;
+    }
+
+    .tab-btn.active {
+      background: rgba(255,255,255,0.14);
+      color: white;
+    }
+
+    .form-panel {
+      position: relative;
+      z-index: 1;
+      display: none;
+    }
+
+    .form-panel.active {
+      display: block;
+      animation: fadeIn 0.35s ease;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 8px;
+      color: rgba(255,255,255,0.88);
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+
+    .input-shell {
+      position: relative;
+    }
+
+    .input-shell input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.94);
+      color: #122033;
+      border-radius: 18px;
+      padding: 16px 88px 16px 52px;
+      outline: none;
+      font-size: 0.98rem;
+      font-weight: 600;
+      transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .input-shell input::placeholder {
+      color: #7a8699;
+    }
+
+    .input-shell input:focus {
+      transform: translateY(-2px);
+      border-color: rgba(77,163,255,0.95);
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(77,163,255,0.18), 0 14px 32px rgba(7, 22, 43, 0.14);
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 18px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1rem;
+      opacity: 1;
+      color: #5d6f86;
+      transition: transform 0.25s ease, color 0.25s ease;
+    }
+
+    .input-shell input:focus + .input-icon {
+      transform: translateY(-50%) scale(1.08);
+      color: #2563eb;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: rgba(37, 99, 235, 0.10);
+      color: #1d4ed8;
+      cursor: pointer;
+      font-size: 0.84rem;
+      font-weight: 700;
+      padding: 8px 12px;
+      border-radius: 12px;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .password-toggle:hover {
+      background: rgba(37, 99, 235, 0.16);
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 8px 0 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .link-btn {
+      border: 0;
+      background: transparent;
+      color: #b6d8ff;
+      cursor: pointer;
+      font-weight: 600;
+      padding: 0;
+    }
+
+    .submit-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 18px;
+      padding: 16px;
+      color: white;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      box-shadow: 0 18px 34px rgba(37,99,235,0.28);
+      transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.04);
+      box-shadow: 0 22px 38px rgba(37,99,235,0.34);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .note {
+      margin: 16px 0 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+
+    .helper-box {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.88);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    .error-msg,
+    .success-msg {
+      display: none;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 0.92rem;
+    }
+
+    .error-msg {
+      background: rgba(255,107,107,0.14);
+      border: 1px solid rgba(255,107,107,0.24);
+      color: #ffd0d0;
+    }
+
+    .success-msg {
+      background: rgba(56,189,120,0.14);
+      border: 1px solid rgba(56,189,120,0.24);
+      color: #d7ffe5;
+    }
+
+    .show {
+      display: block;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .loading {
+      opacity: 0.75;
+      pointer-events: none;
+    }
+
+    @keyframes floatOrb {
+      0%, 100% { transform: translateY(0) translateX(0); }
+      50% { transform: translateY(-18px) translateX(16px); }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes slideLeft {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.985); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      .page {
+        grid-template-columns: 1fr;
+        padding: 20px;
+      }
+      .hero {
+        padding: 0;
+      }
+      .hero h1,
+      .hero p {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .login-card {
+        padding: 20px;
+        border-radius: 22px;
+      }
+      .row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .hero-chip {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="bg-orb orb-1"></div>
+<div class="bg-orb orb-2"></div>
+<div class="bg-orb orb-3"></div>
+
+<main class="page">
+  <section class="hero">
+    <div class="hero-badge">Miras International School Almaty</div>
+    <h1>Miras teacher access for the student points system.</h1>
+    <p>
+      Miras International School Almaty provides a high quality multilingual learning environment focused on student growth,
+      responsibility, and international mindedness. This portal gives teachers and administrators secure access to the school
+      points system, helping track positive actions, negative actions, and student progress in one clear workspace.
+    </p>
+    <div class="hero-points">
+      <div class="hero-chip">Multilingual learning environment</div>
+      <div class="hero-chip">Progress and behaviour tracking</div>
+      <div class="hero-chip">Teacher and admin access</div>
+    </div>
+  </section>
+
+  <section class="login-wrap">
+    <div class="login-card" id="loginCard">
+      <div class="floating-line"></div>
+
+      <div class="brand">
+        <div class="brand-logo">M</div>
+        <div>
+          <h2>Miras School Portal</h2>
+          <p>Secure login connected to the Teachers sheet</p>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="login">Login</button>
+        <button class="tab-btn" data-tab="forgot">Forgot Password</button>
+      </div>
+
+      <div id="errorBox" class="error-msg"></div>
+      <div id="successBox" class="success-msg"></div>
+
+      <div class="form-panel active" id="loginPanel">
+        <div class="field">
+          <label for="email">School Email</label>
+          <div class="input-shell">
+            <input id="email" type="email" placeholder="Enter your school email" />
+            <span class="input-icon">✉</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="input-shell">
+            <input id="password" type="password" placeholder="Enter your password" />
+            <span class="input-icon">🔒</span>
+            <button class="password-toggle" type="button" id="togglePassword">Show</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label class="checkbox">
+            <input type="checkbox" id="rememberMe" checked />
+            <span>Remember me</span>
+          </label>
+          <button class="link-btn" type="button" id="toForgotInline">Forgot password?</button>
+        </div>
+
+        <button class="submit-btn" type="button" id="loginBtn">Sign In</button>
+
+        <p class="note">
+          Your login is checked from the <strong>Teachers</strong> sheet. After successful sign in,
+          the page redirects to <strong>index.html</strong> and saves the logged in user session.
+        </p>
+      </div>
+
+      <div class="form-panel" id="forgotPanel">
+        <div class="field">
+          <label for="forgotEmail">School Email</label>
+          <div class="input-shell">
+            <input id="forgotEmail" type="email" placeholder="Enter your school email" />
+            <span class="input-icon">📩</span>
+          </div>
+        </div>
+
+        <button class="submit-btn" type="button" id="forgotBtn">Check Account</button>
+
+        <div class="helper-box">
+          This page checks whether the email exists in the <strong>Teachers</strong> sheet. If the account exists,
+          the system will show a message asking the user to contact the school administrator to reset the password.
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbwdGxe9wsUT10-PGj24ZuYgb1lFsuTEDEhc2nbiYSzdxALnjQ5KLhwnvpI4kt5-1-sb/exec";
+
+  const tabs = document.querySelectorAll(".tab-btn");
+  const panels = {
+    login: document.getElementById("loginPanel"),
+    forgot: document.getElementById("forgotPanel")
+  };
+
+  const loginCard = document.getElementById("loginCard");
+  const errorBox = document.getElementById("errorBox");
+  const successBox = document.getElementById("successBox");
+  const loginBtn = document.getElementById("loginBtn");
+  const forgotBtn = document.getElementById("forgotBtn");
+  const toForgotInline = document.getElementById("toForgotInline");
+  const togglePassword = document.getElementById("togglePassword");
+  const passwordInput = document.getElementById("password");
+
+  function showTab(tab) {
+    tabs.forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tab));
+    Object.keys(panels).forEach(key => {
+      panels[key].classList.toggle("active", key === tab);
+    });
+    clearMessages();
+  }
+
+  function setLoading(isLoading) {
+    loginCard.classList.toggle("loading", isLoading);
+    loginBtn.disabled = isLoading;
+    forgotBtn.disabled = isLoading;
+    loginBtn.textContent = isLoading ? "Checking..." : "Sign In";
+    forgotBtn.textContent = isLoading ? "Checking..." : "Check Account";
+  }
+
+  function showError(message) {
+    errorBox.textContent = message;
+    errorBox.classList.add("show");
+    successBox.classList.remove("show");
+  }
+
+  function showSuccess(message) {
+    successBox.textContent = message;
+    successBox.classList.add("show");
+    errorBox.classList.remove("show");
+  }
+
+  function clearMessages() {
+    errorBox.classList.remove("show");
+    successBox.classList.remove("show");
+    errorBox.textContent = "";
+    successBox.textContent = "";
+  }
+
+  function normalizeBool(value) {
+    if (typeof value === "boolean") return value;
+    return String(value).toLowerCase() === "true";
+  }
+
+  async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("Request failed: " + response.status);
+    }
+    return await response.json();
+  }
+
+  async function loadTeachers() {
+    const data = await fetchJson(API_URL + "?action=teachers");
+    return data.filter(function(t) {
+      return normalizeBool(t.active);
+    });
+  }
+
+  tabs.forEach(btn => {
+    btn.addEventListener("click", () => showTab(btn.dataset.tab));
+  });
+
+  toForgotInline.addEventListener("click", () => showTab("forgot"));
+
+  togglePassword.addEventListener("click", () => {
+    const isPassword = passwordInput.type === "password";
+    passwordInput.type = isPassword ? "text" : "password";
+    togglePassword.textContent = isPassword ? "Hide" : "Show";
+  });
+
+  loginBtn.addEventListener("click", async () => {
+    clearMessages();
+
+    const email = document.getElementById("email").value.trim().toLowerCase();
+    const password = document.getElementById("password").value.trim();
+    const rememberMe = document.getElementById("rememberMe").checked;
+
+    if (!email || !password) {
+      showError("Please enter both email and password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const teachers = await loadTeachers();
+
+      const foundUser = teachers.find(function(user) {
+        return (
+          String(user.email || "").toLowerCase() === email &&
+          String(user.password || "") === password
+        );
+      });
+
+      if (!foundUser) {
+        showError("Wrong login or password. Please try again.");
+        return;
+      }
+
+      const sessionData = {
+        isLoggedIn: true,
+        teacherName: foundUser.teacherName || foundUser.fullName || "Miras User",
+        email: foundUser.email || "",
+        role: foundUser.role || foundUser.position || "Teacher",
+        classes: foundUser.classes || "ALL",
+        loginTime: new Date().toISOString()
+      };
+
+      localStorage.removeItem("mirasCurrentUser");
+      sessionStorage.removeItem("mirasCurrentUser");
+
+      if (rememberMe) {
+        localStorage.setItem("mirasCurrentUser", JSON.stringify(sessionData));
+      } else {
+        sessionStorage.setItem("mirasCurrentUser", JSON.stringify(sessionData));
+      }
+
+      console.log("Saved session:", sessionData);
+
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 500);
+
+      if (rememberMe) {
+        localStorage.setItem("mirasCurrentUser", JSON.stringify(sessionData));
+      } else {
+        sessionStorage.setItem("mirasCurrentUser", JSON.stringify(sessionData));
+      }
+
+      showSuccess("Login successful. Redirecting to main dashboard...");
+
+      setTimeout(() => {
+        window.location.href = "index.html";
+      }, 850);
+    } catch (error) {
+      console.error("Login error:", error);
+      showError("Could not connect to Google Sheets. Please check Apps Script or internet access.");
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  forgotBtn.addEventListener("click", async () => {
+    clearMessages();
+    const forgotEmail = document.getElementById("forgotEmail").value.trim().toLowerCase();
+
+    if (!forgotEmail) {
+      showError("Please enter your school email.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const teachers = await loadTeachers();
+      const accountExists = teachers.some(function(user) {
+        return String(user.email || "").toLowerCase() === forgotEmail;
+      });
+
+      if (!accountExists) {
+        showError("This email was not found in the Teachers sheet.");
+        return;
+      }
+
+      showSuccess("Account found. Please contact the school administrator to reset the password.");
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      showError("Could not check the Teachers sheet right now.");
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>

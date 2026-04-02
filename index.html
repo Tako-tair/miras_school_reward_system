@@ -20,16 +20,6 @@
       </div>
     </div>
 
-    <div class="login-box">
-      <h2>Teacher Login</h2>
-      <label for="loginEmail">Email</label>
-      <input id="loginEmail" type="email" value="teacher@miras-demo.com" />
-      <label for="loginPassword">Password</label>
-      <input id="loginPassword" type="password" value="Miras2026!" />
-      <button id="loginBtn" class="btn btn-primary full">Login</button>
-      <p class="mini-note">Teachers will only see their own classes and students after login.</p>
-    </div>
-
     <nav class="menu">
       <button class="menu-link active" data-tab="dashboard">Dashboard</button>
       <button class="menu-link" data-tab="students">Students</button>
@@ -56,9 +46,18 @@
           <strong id="teacherNameTop">Not logged in</strong>
           <span>Current teacher</span>
         </div>
+
         <div class="small-stat pulse-box" id="syncBox">
           <strong id="syncStatus">Waiting for login</strong>
           <span>Google Sheets status</span>
+        </div>
+
+        <div class="small-stat">
+          <strong>User session</strong>
+          <span id="userRoleLabel">Guest</span>
+          <button id="logoutBtn" class="btn full" type="button" onclick="logoutUser()" style="margin-top:12px;">
+            Logout
+          </button>
         </div>
       </div>
     </section>

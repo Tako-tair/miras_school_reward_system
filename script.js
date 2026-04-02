@@ -1,8 +1,36 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbwdGxe9wsUT10-PGj24ZuYgb1lFsuTEDEhc2nbiYSzdxALnjQ5KLhwnvpI4kt5-1-sb/exec";
 
+function getSavedUser() {
+  try {
+    const localUser = localStorage.getItem("mirasCurrentUser");
+    const sessionUser = sessionStorage.getItem("mirasCurrentUser");
+
+    if (localUser) return JSON.parse(localUser);
+    if (sessionUser) return JSON.parse(sessionUser);
+
+    return null;
+  } catch (error) {
+    console.error("Error reading saved user:", error);
+    return null;
+  }
+}
+
+const savedUser = getSavedUser();
+
+function redirectToLogin() {
+  window.location.href = "login_page.html";
+}
+
+function logoutUser() {
+  localStorage.removeItem("mirasCurrentUser");
+  sessionStorage.removeItem("mirasCurrentUser");
+  redirectToLogin();
+}
+
 let isLoggedIn = false;
 let lastActionMap = {};
 let selectedPeriod = "all";
+let isSavingLog = false;
 
 let allClasses = [];
 let teachersData = [];
@@ -19,6 +47,19 @@ let leaderboardSort = "points-desc";
 
 let currentUser = null;
 let allowedClasses = [];
+
+if (!savedUser || !savedUser.isLoggedIn) {
+  redirectToLogin();
+} else {
+  isLoggedIn = true;
+  currentUser = {
+    teacherName: savedUser.teacherName || "Unknown",
+    email: savedUser.email || "",
+    role: savedUser.role || "Teacher",
+    classes: savedUser.classes || "ALL"
+  };
+  allowedClasses = parseClasses(currentUser.classes);
+}
 
 const classSelect = document.getElementById("classSelect");
 const searchInput = document.getElementById("searchInput");
@@ -42,11 +83,36 @@ const commentInput = document.getElementById("commentInput");
 const teacherNameTop = document.getElementById("teacherNameTop");
 const syncStatus = document.getElementById("syncStatus");
 const syncBox = document.getElementById("syncBox");
-
-const loginBtn = document.getElementById("loginBtn");
-const loginEmail = document.getElementById("loginEmail");
-const loginPassword = document.getElementById("loginPassword");
 const undoBtn = document.getElementById("undoBtn");
+const userRoleLabel = document.getElementById("userRoleLabel");
+const logoutBtn = document.getElementById("logoutBtn");
+
+function safeString(value) {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+}
+
+function normalizeBool(value) {
+  if (typeof value === "boolean") return value;
+  return String(value).toLowerCase() === "true";
+}
+
+function normalizeClass(value) {
+  return safeString(value).replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizeText(value) {
+  return safeString(value).toLowerCase();
+}
+
+function escapeHtml(value) {
+  return safeString(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function badgeLevel(points) {
   if (points >= 40) return "Legend";
@@ -56,12 +122,9 @@ function badgeLevel(points) {
   return "Starter";
 }
 
-function normalizeBool(value) {
-  if (typeof value === "boolean") return value;
-  return String(value).toLowerCase() === "true";
-}
-
 function fillSelect(select, values, includeAll) {
+  if (!select) return;
+
   let html = "";
 
   if (includeAll) {
@@ -69,7 +132,7 @@ function fillSelect(select, values, includeAll) {
   }
 
   html += values.map(function(v) {
-    return '<option value="' + v + '">' + v + '</option>';
+    return '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + "</option>";
   }).join("");
 
   select.innerHTML = html;
@@ -77,12 +140,12 @@ function fillSelect(select, values, includeAll) {
 
 function parseClasses(value) {
   if (!value) return [];
-  if (String(value).trim().toUpperCase() === "ALL") return ["ALL"];
+  if (safeString(value).toUpperCase() === "ALL") return ["ALL"];
 
-  return String(value)
+  return safeString(value)
     .split(",")
     .map(function(item) {
-      return item.trim();
+      return normalizeClass(item);
     })
     .filter(Boolean);
 }
@@ -97,13 +160,43 @@ function checkAuth(showAlert) {
   return true;
 }
 
+function parseLogDate(value) {
+  if (!value) return null;
+
+  if (Object.prototype.toString.call(value) === "[object Date]" && !isNaN(value)) {
+    return value;
+  }
+
+  const raw = safeString(value);
+  if (!raw) return null;
+
+  const parsed = new Date(raw.replace(" ", "T"));
+  if (isNaN(parsed.getTime())) return null;
+
+  return parsed;
+}
+
+function formatLogDate(value) {
+  const date = parseLogDate(value);
+
+  if (!date) return safeString(value);
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+
+  return y + "-" + m + "-" + d + " " + h + ":" + min;
+}
+
 function isInPeriod(log) {
   if (selectedPeriod === "all") return true;
 
-  const logDate = new Date(log.date.replace(" ", "T"));
+  const logDate = parseLogDate(log.date);
   const now = new Date();
 
-  if (isNaN(logDate.getTime())) return false;
+  if (!logDate) return false;
 
   if (selectedPeriod === "today") {
     return logDate.toDateString() === now.toDateString();
@@ -128,8 +221,8 @@ function getStudentTotalPoints(student) {
   return logs
     .filter(function(log) {
       return (
-        log.className === student.className &&
-        log.studentName === student.name &&
+        normalizeClass(log.className) === normalizeClass(student.className) &&
+        normalizeText(log.studentName) === normalizeText(student.name) &&
         isInPeriod(log)
       );
     })
@@ -150,10 +243,14 @@ function rebuildStudentsWithPoints() {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url);
+  const separator = url.indexOf("?") === -1 ? "?" : "&";
+  const finalUrl = url + separator + "_ts=" + Date.now();
+
+  const response = await fetch(finalUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error("Request failed: " + response.status);
   }
+
   return await response.json();
 }
 
@@ -166,16 +263,17 @@ async function loadTeachers() {
 
 async function loadActions() {
   const data = await fetchJson(API_URL + "?action=actions");
+
   actions = data
     .filter(function(a) {
       return normalizeBool(a.active);
     })
     .map(function(a) {
       return {
-        id: a.actionId,
-        label: a.actionName,
-        points: Number(a.points),
-        type: a.type
+        id: safeString(a.actionId),
+        label: safeString(a.actionName),
+        points: Number(a.points || 0),
+        type: safeString(a.type).toLowerCase() || (Number(a.points || 0) >= 0 ? "positive" : "negative")
       };
     })
     .filter(function(a) {
@@ -191,15 +289,16 @@ async function loadActions() {
 
 async function loadStudents() {
   const data = await fetchJson(API_URL + "?action=students");
+
   students = data
     .filter(function(s) {
       return normalizeBool(s.active);
     })
     .map(function(s) {
       return {
-        id: s.studentId,
-        name: s.fullName,
-        className: s.className,
+        id: safeString(s.studentId),
+        name: safeString(s.fullName),
+        className: safeString(s.className),
         totalPoints: 0
       };
     })
@@ -207,27 +306,43 @@ async function loadStudents() {
       return s.id && s.name && s.className;
     });
 
-  allClasses = Array.from(
-    new Set(
-      students.map(function(s) {
-        return s.className;
-      })
-    )
-  ).sort();
+  allClasses = Array.from(new Set(students.map(function(s) {
+    return s.className;
+  }))).sort();
 }
 
 async function loadLogs() {
   const data = await fetchJson(API_URL + "?action=logs");
+
   logs = data.map(function(log, index) {
+    const shiftedOldRow =
+      log &&
+      log.id &&
+      Object.prototype.toString.call(log.id) === "[object Date]";
+
+    if (shiftedOldRow) {
+      return {
+        id: index + 1,
+        date: formatLogDate(log.id),
+        teacher: safeString(log.date),
+        className: safeString(log.teacher),
+        studentName: safeString(log.className),
+        actionLabel: safeString(log.studentName),
+        points: Number(log.actionLabel || 0),
+        comment: safeString(log.points),
+        timestamp: Number(log.timestamp || 0)
+      };
+    }
+
     return {
-      id: index + 1,
-      date: log.date || "",
-      teacher: log.teacher || "",
-      className: log.className || "",
-      studentName: log.studentName || "",
-      actionLabel: log.actionLabel || "",
+      id: Number(log.id || index + 1),
+      date: formatLogDate(log.date),
+      teacher: safeString(log.teacher),
+      className: safeString(log.className),
+      studentName: safeString(log.studentName),
+      actionLabel: safeString(log.actionLabel),
       points: Number(log.points || 0),
-      comment: log.comment || "",
+      comment: safeString(log.comment),
       timestamp: Number(log.timestamp || 0)
     };
   });
@@ -241,7 +356,7 @@ function getAccessibleStudents() {
   }
 
   return students.filter(function(student) {
-    return allowedClasses.indexOf(student.className) !== -1;
+    return allowedClasses.indexOf(normalizeClass(student.className)) !== -1;
   });
 }
 
@@ -258,20 +373,20 @@ function sortStudentsBy(mode) {
 function getFilteredStudents() {
   return getAccessibleStudents()
     .filter(function(student) {
-      const classMatch = selectedClass === "ALL" || student.className === selectedClass;
-      const searchMatch = student.name.toLowerCase().indexOf(searchText.toLowerCase()) !== -1;
+      const classMatch = selectedClass === "ALL" || normalizeClass(student.className) === normalizeClass(selectedClass);
+      const searchMatch = normalizeText(student.name).indexOf(normalizeText(searchText)) !== -1;
       return classMatch && searchMatch;
     })
     .sort(sortStudentsBy(studentSort));
 }
 
 function getLeaderboardStudents() {
-  const searchValue = leaderboardSearch ? leaderboardSearch.value.toLowerCase() : "";
+  const searchValue = leaderboardSearch ? normalizeText(leaderboardSearch.value) : "";
 
   return getAccessibleStudents()
     .filter(function(student) {
-      const classMatch = selectedClass === "ALL" || student.className === selectedClass;
-      const searchMatch = student.name.toLowerCase().indexOf(searchValue) !== -1;
+      const classMatch = selectedClass === "ALL" || normalizeClass(student.className) === normalizeClass(selectedClass);
+      const searchMatch = normalizeText(student.name).indexOf(searchValue) !== -1;
       return classMatch && searchMatch;
     })
     .sort(sortStudentsBy(leaderboardSort));
@@ -293,9 +408,9 @@ function updateStats() {
   const avg = current.length ? Math.round(total / current.length) : 0;
 
   const negative = logs.filter(function(l) {
-    const classMatch = selectedClass === "ALL" || l.className === selectedClass;
+    const classMatch = selectedClass === "ALL" || normalizeClass(l.className) === normalizeClass(selectedClass);
     const periodMatch = isInPeriod(l);
-    const accessMatch = allowedClasses.indexOf("ALL") !== -1 || allowedClasses.indexOf(l.className) !== -1;
+    const accessMatch = allowedClasses.indexOf("ALL") !== -1 || allowedClasses.indexOf(normalizeClass(l.className)) !== -1;
     return classMatch && periodMatch && accessMatch && Number(l.points) < 0;
   }).length;
 
@@ -317,39 +432,39 @@ function renderStudents() {
   studentGrid.innerHTML = list.map(function(student) {
     return '' +
       '<div class="student-card">' +
-      '<h4>' + student.name + '</h4>' +
-      '<p>Class ' + student.className + '</p>' +
+      "<h4>" + escapeHtml(student.name) + "</h4>" +
+      "<p>Class " + escapeHtml(student.className) + "</p>" +
       '<div class="student-footer">' +
-      '<span class="points-badge">' + student.totalPoints + ' pts</span>' +
-      '<button class="btn btn-primary" onclick="openStudentModal(\'' + student.id + '\')">Manage</button>' +
-      '</div>' +
-      '</div>';
+      '<span class="points-badge">' + student.totalPoints + " pts</span>" +
+      '<button class="btn btn-primary" onclick="openStudentModal(\'' + String(student.id).replace(/'/g, "\\'") + "')\">Manage</button>" +
+      "</div>" +
+      "</div>";
   }).join("");
 
   studentsTableWrap.innerHTML =
     '<table class="table">' +
-    '<thead>' +
-    '<tr>' +
-    '<th>Name</th>' +
-    '<th>Class</th>' +
-    '<th>Total Points</th>' +
-    '<th>Badge</th>' +
-    '<th>Action</th>' +
-    '</tr>' +
-    '</thead>' +
-    '<tbody>' +
+    "<thead>" +
+    "<tr>" +
+    "<th>Name</th>" +
+    "<th>Class</th>" +
+    "<th>Total Points</th>" +
+    "<th>Badge</th>" +
+    "<th>Action</th>" +
+    "</tr>" +
+    "</thead>" +
+    "<tbody>" +
     list.map(function(student) {
       return '' +
-        '<tr>' +
-        '<td>' + student.name + '</td>' +
-        '<td>' + student.className + '</td>' +
-        '<td>' + student.totalPoints + '</td>' +
-        '<td>' + badgeLevel(student.totalPoints) + '</td>' +
-        '<td><button class="btn" onclick="openStudentModal(\'' + student.id + '\')">Manage Points</button></td>' +
-        '</tr>';
+        "<tr>" +
+        "<td>" + escapeHtml(student.name) + "</td>" +
+        "<td>" + escapeHtml(student.className) + "</td>" +
+        "<td>" + student.totalPoints + "</td>" +
+        "<td>" + badgeLevel(student.totalPoints) + "</td>" +
+        '<td><button class="btn" onclick="openStudentModal(\'' + String(student.id).replace(/'/g, "\\'") + "')\">Manage Points</button></td>" +
+        "</tr>";
     }).join("") +
-    '</tbody>' +
-    '</table>';
+    "</tbody>" +
+    "</table>";
 }
 
 function renderLeaderboard() {
@@ -365,38 +480,38 @@ function renderLeaderboard() {
   topThree.innerHTML = ranked.slice(0, 3).map(function(student, index) {
     return '' +
       '<div class="top-item">' +
-      '<h4>#' + (index + 1) + ' ' + student.name + '</h4>' +
-      '<p>' + badgeLevel(student.totalPoints) + '</p>' +
+      "<h4>#" + (index + 1) + " " + escapeHtml(student.name) + "</h4>" +
+      "<p>" + badgeLevel(student.totalPoints) + "</p>" +
       '<div class="student-footer">' +
-      '<span class="level-badge">' + student.totalPoints + ' pts</span>' +
-      '</div>' +
-      '</div>';
+      '<span class="level-badge">' + student.totalPoints + " pts</span>" +
+      "</div>" +
+      "</div>";
   }).join("");
 
   leaderboardTableWrap.innerHTML =
     '<table class="table">' +
-    '<thead>' +
-    '<tr>' +
-    '<th>Rank</th>' +
-    '<th>Name</th>' +
-    '<th>Class</th>' +
-    '<th>Points</th>' +
-    '<th>Badge</th>' +
-    '</tr>' +
-    '</thead>' +
-    '<tbody>' +
+    "<thead>" +
+    "<tr>" +
+    "<th>Rank</th>" +
+    "<th>Name</th>" +
+    "<th>Class</th>" +
+    "<th>Points</th>" +
+    "<th>Badge</th>" +
+    "</tr>" +
+    "</thead>" +
+    "<tbody>" +
     ranked.map(function(student, index) {
       return '' +
-        '<tr>' +
-        '<td>#' + (index + 1) + '</td>' +
-        '<td>' + student.name + '</td>' +
-        '<td>' + student.className + '</td>' +
-        '<td>' + student.totalPoints + '</td>' +
-        '<td>' + badgeLevel(student.totalPoints) + '</td>' +
-        '</tr>';
+        "<tr>" +
+        "<td>#" + (index + 1) + "</td>" +
+        "<td>" + escapeHtml(student.name) + "</td>" +
+        "<td>" + escapeHtml(student.className) + "</td>" +
+        "<td>" + student.totalPoints + "</td>" +
+        "<td>" + badgeLevel(student.totalPoints) + "</td>" +
+        "</tr>";
     }).join("") +
-    '</tbody>' +
-    '</table>';
+    "</tbody>" +
+    "</table>";
 
   leaderboardList.innerHTML = "";
 }
@@ -409,9 +524,9 @@ function renderHistory() {
 
   historyList.innerHTML = logs
     .filter(function(log) {
-      const classMatch = selectedClass === "ALL" || log.className === selectedClass;
+      const classMatch = selectedClass === "ALL" || normalizeClass(log.className) === normalizeClass(selectedClass);
       const periodMatch = isInPeriod(log);
-      const accessMatch = allowedClasses.indexOf("ALL") !== -1 || allowedClasses.indexOf(log.className) !== -1;
+      const accessMatch = allowedClasses.indexOf("ALL") !== -1 || allowedClasses.indexOf(normalizeClass(log.className)) !== -1;
       return classMatch && periodMatch && accessMatch;
     })
     .slice()
@@ -420,17 +535,17 @@ function renderHistory() {
       return '' +
         '<div class="history-item">' +
         '<div class="leader-right">' +
-        '<div>' +
-        '<h4>' + log.studentName + ' | ' + log.className + '</h4>' +
-        '<p>' + log.teacher + ' | ' + log.date + '</p>' +
-        '</div>' +
-        '<span class="mini-badge ' + (log.points >= 0 ? 'positive' : 'negative') + '">' +
-        (log.points >= 0 ? '+' : '') + log.points + ' pts' +
-        '</span>' +
-        '</div>' +
-        '<p><strong>' + log.actionLabel + '</strong></p>' +
-        '<p>' + log.comment + '</p>' +
-        '</div>';
+        "<div>" +
+        "<h4>" + escapeHtml(log.studentName) + " | " + escapeHtml(log.className) + "</h4>" +
+        "<p>" + escapeHtml(log.teacher) + " | " + escapeHtml(log.date) + "</p>" +
+        "</div>" +
+        '<span class="mini-badge ' + (log.points >= 0 ? "positive" : "negative") + '">' +
+        (log.points >= 0 ? "+" : "") + log.points + " pts" +
+        "</span>" +
+        "</div>" +
+        "<p><strong>" + escapeHtml(log.actionLabel) + "</strong></p>" +
+        "<p>" + escapeHtml(log.comment) + "</p>" +
+        "</div>";
     }).join("");
 }
 
@@ -439,21 +554,26 @@ function renderModalActions() {
     const isActive = selectedAction && selectedAction.id === action.id;
 
     return '' +
-      '<div class="action-item ' + (isActive ? 'active' : '') + '" onclick="selectAction(\'' + action.id + '\')">' +
-      '<h5>' + action.label + '</h5>' +
-      '<p>' + (action.type === 'positive' ? 'Positive' : 'Negative') + ' | ' +
-      (action.points >= 0 ? '+' : '') + action.points + ' points</p>' +
-      '</div>';
+      '<div class="action-item ' + (isActive ? "active" : "") + '" onclick="selectAction(\'' + String(action.id).replace(/'/g, "\\'") + "')\">" +
+      "<h5>" + escapeHtml(action.label) + "</h5>" +
+      "<p>" + (action.type === "positive" ? "Positive" : "Negative") + " | " +
+      (action.points >= 0 ? "+" : "") + action.points + " points</p>" +
+      "</div>";
   }).join("");
 
   if (selectedAction) {
     selectedActionLabel.textContent = selectedAction.label;
-    selectedActionPoints.textContent = (selectedAction.points >= 0 ? '+' : '') + selectedAction.points;
+    selectedActionPoints.textContent = (selectedAction.points >= 0 ? "+" : "") + selectedAction.points;
   }
 }
 
 function renderAll() {
   teacherNameTop.textContent = currentUser ? currentUser.teacherName : "Not logged in";
+
+  if (userRoleLabel && currentUser) {
+    userRoleLabel.textContent = currentUser.role || currentUser.position || "Teacher";
+  }
+
   updateStats();
   renderStudents();
   renderLeaderboard();
@@ -464,12 +584,12 @@ window.openStudentModal = function(studentId) {
   if (!checkAuth(true)) return;
 
   selectedStudent = students.find(function(s) {
-    return s.id === studentId;
+    return String(s.id) === String(studentId);
   });
 
   if (!selectedStudent) return;
 
-  selectedAction = actions[0];
+  selectedAction = actions[0] || null;
   commentInput.value = "";
 
   modalTitle.textContent = "Manage Points | " + selectedStudent.name;
@@ -484,8 +604,8 @@ window.openStudentModal = function(studentId) {
 
 window.selectAction = function(actionId) {
   selectedAction = actions.find(function(a) {
-    return a.id === actionId;
-  });
+    return String(a.id) === String(actionId);
+  }) || null;
   renderModalActions();
 };
 
@@ -513,7 +633,7 @@ function undoLast() {
 
 async function syncLog(log) {
   try {
-    syncStatus.textContent = "Syncing to Google Sheets...";
+    syncStatus.textContent = "Syncing...";
 
     const response = await fetch(API_URL, {
       method: "POST",
@@ -525,22 +645,25 @@ async function syncLog(log) {
 
     const result = await response.json();
 
-    if (result.success) {
-      syncStatus.textContent = "Synced to Google Sheets at " + log.date;
+    if (!result.success) {
+      syncStatus.textContent = "Save error";
+      alert("Error saving");
+      return false;
+    }
+
+    syncStatus.textContent = "Saved ✅";
+    if (syncBox) {
       syncBox.classList.add("synced");
       setTimeout(function() {
         syncBox.classList.remove("synced");
-      }, 900);
-      return true;
-    } else {
-      syncStatus.textContent = "Sync failed";
-      alert("Data was not saved to Google Sheets.");
-      return false;
+      }, 800);
     }
+
+    return true;
   } catch (error) {
     console.error("Sync error:", error);
     syncStatus.textContent = "Connection error";
-    alert("Could not connect to Google Apps Script.");
+    alert("Connection error");
     return false;
   }
 }
@@ -548,95 +671,76 @@ async function syncLog(log) {
 async function savePoints() {
   if (!checkAuth(true)) return;
   if (!selectedStudent || !selectedAction || !currentUser) return;
+  if (isSavingLog) return;
 
-  const key = selectedStudent.id + "_" + selectedAction.id;
-  const now = Date.now();
+  const saveBtn = document.getElementById("saveBtn");
+  isSavingLog = true;
 
-  if (lastActionMap[key] && now - lastActionMap[key] < 10000) {
-    const shouldContinue = confirm("You already gave this action recently. Continue?");
-    if (!shouldContinue) return;
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
   }
 
-  lastActionMap[key] = now;
+  try {
+    const key = selectedStudent.id + "_" + selectedAction.id;
+    const now = Date.now();
 
-  const dateObj = new Date();
-  const date =
-    dateObj.getFullYear() + "-" +
-    String(dateObj.getMonth() + 1).padStart(2, "0") + "-" +
-    String(dateObj.getDate()).padStart(2, "0") + " " +
-    String(dateObj.getHours()).padStart(2, "0") + ":" +
-    String(dateObj.getMinutes()).padStart(2, "0");
+    if (lastActionMap[key] && now - lastActionMap[key] < 5000) {
+      alert("Please wait a few seconds before sending the same action again.");
+      return;
+    }
 
-  const newLog = {
-    studentId: selectedStudent.id,
-    studentName: selectedStudent.name,
-    className: selectedStudent.className,
-    teacher: currentUser.teacherName,
-    actionLabel: selectedAction.label,
-    points: selectedAction.points,
-    comment: commentInput.value.trim() || "No comment added.",
-    date: date,
-    timestamp: now
-  };
+    lastActionMap[key] = now;
 
-  const success = await syncLog(newLog);
-  if (!success) return;
+    const dateObj = new Date();
+    const date =
+      dateObj.getFullYear() + "-" +
+      String(dateObj.getMonth() + 1).padStart(2, "0") + "-" +
+      String(dateObj.getDate()).padStart(2, "0") + " " +
+      String(dateObj.getHours()).padStart(2, "0") + ":" +
+      String(dateObj.getMinutes()).padStart(2, "0");
 
-  logs.push({
-    id: logs.length + 1,
-    date: newLog.date,
-    teacher: newLog.teacher,
-    className: newLog.className,
-    studentName: newLog.studentName,
-    actionLabel: newLog.actionLabel,
-    points: newLog.points,
-    comment: newLog.comment,
-    timestamp: newLog.timestamp
-  });
+    const newLog = {
+      studentId: selectedStudent.id,
+      studentName: selectedStudent.name,
+      className: selectedStudent.className,
+      teacher: currentUser.teacherName,
+      actionLabel: selectedAction.label,
+      points: selectedAction.points,
+      comment: commentInput.value.trim() || "No comment added.",
+      date: date,
+      timestamp: now
+    };
 
-  rebuildStudentsWithPoints();
-  closeModal();
-  renderAll();
-}
+    const success = await syncLog(newLog);
+    if (!success) return;
 
-async function loginUser() {
-  const email = loginEmail.value.trim().toLowerCase();
-  const password = loginPassword.value.trim();
+    logs.push({
+      id: logs.length + 1,
+      date: newLog.date,
+      teacher: newLog.teacher,
+      className: newLog.className,
+      studentName: newLog.studentName,
+      actionLabel: newLog.actionLabel,
+      points: newLog.points,
+      comment: newLog.comment,
+      timestamp: newLog.timestamp
+    });
 
-  if (!email || !password) {
-    alert("Enter email and password.");
-    return;
+    rebuildStudentsWithPoints();
+    renderAll();
+    closeModal();
+  } catch (error) {
+    console.error("Save error:", error);
+    alert("Error while saving data.");
+  } finally {
+    isSavingLog = false;
+
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save and Sync";
+    }
   }
-
-  const found = teachersData.find(function(t) {
-    return (
-      String(t.email || "").toLowerCase() === email &&
-      String(t.password || "") === password &&
-      normalizeBool(t.active)
-    );
-  });
-
-  if (!found) {
-    alert("Wrong login or password.");
-    return;
-  }
-
-  currentUser = found;
-  isLoggedIn = true;
-  allowedClasses = parseClasses(found.classes);
-
-  if (allowedClasses.indexOf("ALL") !== -1) {
-    fillSelect(classSelect, allClasses, true);
-  } else {
-    fillSelect(classSelect, allowedClasses, true);
-  }
-
-  selectedClass = "ALL";
-  classSelect.value = "ALL";
-  teacherNameTop.textContent = found.teacherName;
-  syncStatus.textContent = "Logged in as " + found.teacherName;
-
-  renderAll();
 }
 
 function switchTab(tab) {
@@ -650,7 +754,10 @@ function switchTab(tab) {
     el.classList.remove("active");
   });
 
-  document.getElementById("tab-" + tab).classList.add("active");
+  const targetTab = document.getElementById("tab-" + tab);
+  if (targetTab) {
+    targetTab.classList.add("active");
+  }
 }
 
 async function loadAllData() {
@@ -664,9 +771,46 @@ async function loadAllData() {
       loadLogs()
     ]);
 
+    const foundTeacher = teachersData.find(function(t) {
+      return normalizeText(t.email) === normalizeText(currentUser.email);
+    });
+
+    if (!foundTeacher) {
+      alert("This account was not found in Teachers sheet.");
+      logoutUser();
+      return;
+    }
+
+    currentUser = {
+      teacherName: foundTeacher.teacherName || foundTeacher.fullName || "Unknown user",
+      email: foundTeacher.email || "",
+      role: foundTeacher.role || foundTeacher.position || "Teacher",
+      classes: foundTeacher.classes || "ALL"
+    };
+
+    allowedClasses = parseClasses(currentUser.classes);
+    if (!allowedClasses.length) {
+      allowedClasses = ["ALL"];
+    }
+
     rebuildStudentsWithPoints();
-    fillSelect(classSelect, allClasses, true);
-    classSelect.value = "ALL";
+
+    if (allowedClasses.indexOf("ALL") !== -1) {
+      fillSelect(classSelect, allClasses, true);
+    } else {
+      const visibleClasses = allClasses.filter(function(className) {
+        return allowedClasses.indexOf(normalizeClass(className)) !== -1;
+      });
+      fillSelect(classSelect, visibleClasses, true);
+    }
+
+    selectedClass = "ALL";
+    if (classSelect) classSelect.value = "ALL";
+
+    teacherNameTop.textContent = currentUser.teacherName;
+    if (userRoleLabel) {
+      userRoleLabel.textContent = currentUser.role || "Teacher";
+    }
 
     renderAll();
     syncStatus.textContent = "Loaded from Google Sheets";
@@ -680,7 +824,6 @@ async function loadAllData() {
 document.getElementById("closeModal").addEventListener("click", closeModal);
 document.getElementById("cancelBtn").addEventListener("click", closeModal);
 document.getElementById("saveBtn").addEventListener("click", savePoints);
-document.getElementById("loginBtn").addEventListener("click", loginUser);
 document.getElementById("undoBtn").addEventListener("click", undoLast);
 
 classSelect.addEventListener("change", function(e) {
@@ -725,5 +868,9 @@ modalBackdrop.addEventListener("click", function(e) {
     closeModal();
   }
 });
+
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", logoutUser);
+}
 
 loadAllData();
