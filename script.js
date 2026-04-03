@@ -41,6 +41,7 @@ let logs = [];
 let selectedClass = "ALL";
 let selectedStudent = null;
 let selectedAction = null;
+let openedCategories = {};
 let searchText = "";
 let studentSort = "name-asc";
 let leaderboardSort = "points-desc";
@@ -261,8 +262,11 @@ async function loadTeachers() {
   });
 }
 
+
+
 async function loadActions() {
   const data = await fetchJson(API_URL + "?action=actions");
+  console.log("RAW ACTIONS DATA:", data);
 
   actions = data
     .filter(function(a) {
@@ -270,21 +274,24 @@ async function loadActions() {
     })
     .map(function(a) {
       return {
-        id: safeString(a.actionId),
-        label: safeString(a.actionName),
+        id: String(a.actionId || "").trim(),
+        category: String(a.category || "Other").trim(),
+        label: String(a.actionName || "").trim(),
         points: Number(a.points || 0),
-        type: safeString(a.type).toLowerCase() || (Number(a.points || 0) >= 0 ? "positive" : "negative")
+        type: String(a.type || "").trim().toLowerCase()
       };
     })
     .filter(function(a) {
       return a.id && a.label;
     });
 
+  console.log("PARSED ACTIONS:", actions);
+
   if (!actions.length) {
     throw new Error("No actions found in Google Sheets.");
   }
 
-  selectedAction = actions[0];
+  selectedAction = null;
 }
 
 async function loadStudents() {
@@ -550,20 +557,62 @@ function renderHistory() {
 }
 
 function renderModalActions() {
-  actionsGrid.innerHTML = actions.map(function(action) {
-    const isActive = selectedAction && selectedAction.id === action.id;
+  if (!actionsGrid) return;
 
-    return '' +
-      '<div class="action-item ' + (isActive ? "active" : "") + '" onclick="selectAction(\'' + String(action.id).replace(/'/g, "\\'") + "')\">" +
-      "<h5>" + escapeHtml(action.label) + "</h5>" +
-      "<p>" + (action.type === "positive" ? "Positive" : "Negative") + " | " +
-      (action.points >= 0 ? "+" : "") + action.points + " points</p>" +
-      "</div>";
+  const grouped = {};
+
+  actions.forEach(function(action) {
+    const category = action.category || "Other";
+    if (!grouped[category]) {
+      grouped[category] = [];
+    }
+    grouped[category].push(action);
+  });
+
+  const categories = Object.keys(grouped);
+
+  actionsGrid.innerHTML = categories.map(function(category, index) {
+    const items = grouped[category];
+    const isOpen = !!openedCategories[category];
+
+    return `
+      <div class="category-block">
+        <button
+          type="button"
+          class="category-toggle ${isOpen ? "active" : ""}"
+          onclick="toggleCategory('${category.replace(/'/g, "\\'")}')"
+        >
+          <span class="category-title">${category}</span>
+          <span class="category-icon">${isOpen ? "−" : "+"}</span>
+        </button>
+
+        <div class="category-dropdown ${isOpen ? "open" : ""}">
+          ${items.map(function(action) {
+            const isActive = selectedAction && selectedAction.id === action.id;
+            const pointsText = (action.points >= 0 ? "+" : "") + action.points + " points";
+
+            return `
+              <div class="action-item ${isActive ? "active" : ""}" onclick="selectAction('${action.id}')">
+                <div class="action-item-top">
+                  <h5>${action.label}</h5>
+                  <span class="action-points ${action.points >= 0 ? "positive" : "negative"}">${pointsText}</span>
+                </div>
+                <p>${action.type === "negative" ? "Negative" : "Positive"} action</p>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
   }).join("");
 
   if (selectedAction) {
     selectedActionLabel.textContent = selectedAction.label;
-    selectedActionPoints.textContent = (selectedAction.points >= 0 ? "+" : "") + selectedAction.points;
+    selectedActionPoints.textContent =
+      (selectedAction.points >= 0 ? "+" : "") + selectedAction.points + " pts";
+  } else {
+    selectedActionLabel.textContent = "No action selected";
+    selectedActionPoints.textContent = "0 pts";
   }
 }
 
@@ -589,8 +638,15 @@ window.openStudentModal = function(studentId) {
 
   if (!selectedStudent) return;
 
-  selectedAction = actions[0] || null;
-  commentInput.value = "";
+selectedAction = null;
+commentInput.value = "";
+openedCategories = {};
+
+actions.forEach(function(action) {
+  if (!openedCategories[action.category]) {
+    openedCategories[action.category] = false;
+  }
+});
 
   modalTitle.textContent = "Manage Points | " + selectedStudent.name;
   modalSubtitle.textContent =
@@ -604,8 +660,13 @@ window.openStudentModal = function(studentId) {
 
 window.selectAction = function(actionId) {
   selectedAction = actions.find(function(a) {
-    return String(a.id) === String(actionId);
-  }) || null;
+    return a.id === actionId;
+  });
+  renderModalActions();
+};
+
+window.toggleCategory = function(category) {
+  openedCategories[category] = !openedCategories[category];
   renderModalActions();
 };
 
