@@ -882,56 +882,88 @@ async function loadAllData() {
   }
 }
 
-document.getElementById("closeModal").addEventListener("click", closeModal);
-document.getElementById("cancelBtn").addEventListener("click", closeModal);
-document.getElementById("saveBtn").addEventListener("click", savePoints);
-document.getElementById("undoBtn").addEventListener("click", undoLast);
+const closeModalBtn = document.getElementById("closeModal");
+const cancelBtn = document.getElementById("cancelBtn");
+const saveBtn = document.getElementById("saveBtn");
+const undoModalBtn = document.getElementById("undoBtn");
 
-classSelect.addEventListener("change", function(e) {
-  selectedClass = e.target.value;
-  renderAll();
-});
-
-searchInput.addEventListener("input", function(e) {
-  searchText = e.target.value;
-  renderStudents();
-  updateStats();
-});
-
-studentSortSelect.addEventListener("change", function(e) {
-  studentSort = e.target.value;
-  renderStudents();
-});
-
-periodFilter.addEventListener("change", function(e) {
-  selectedPeriod = e.target.value;
-  rebuildStudentsWithPoints();
-  renderAll();
-});
-
-leaderboardSortSelect.addEventListener("change", function(e) {
-  leaderboardSort = e.target.value;
-  renderLeaderboard();
-});
-
-leaderboardSearch.addEventListener("input", function() {
-  renderLeaderboard();
-});
-
-document.querySelectorAll(".menu-link").forEach(function(btn) {
-  btn.addEventListener("click", function() {
-    switchTab(btn.dataset.tab);
-  });
-});
-
-modalBackdrop.addEventListener("click", function(e) {
-  if (e.target === modalBackdrop) {
-    closeModal();
-  }
-});
-
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", logoutUser);
+if (closeModalBtn) {
+  closeModalBtn.addEventListener("click", closeModal);
 }
+
+if (cancelBtn) {
+  cancelBtn.addEventListener("click", closeModal);
+}
+
+if (saveBtn) {
+  saveBtn.addEventListener("click", savePoints);
+}
+
+if (undoModalBtn) {
+  undoModalBtn.addEventListener("click", undoLast);
+}
+
+if (classSelect) {
+  classSelect.addEventListener("change", function(e) {
+    selectedClass = e.target.value;
+    renderAll();
+  });
+}
+
+if (searchInput) {
+  searchInput.addEventListener("input", function(e) {
+    searchText = e.target.value;
+    renderStudents();
+    updateStats();
+  });
+}
+
+if (studentSortSelect) {
+  studentSortSelect.addEventListener("change", function(e) {
+    studentSort = e.target.value;
+    renderStudents();
+  });
+}
+
+if (periodFilter) {
+  periodFilter.addEventListener("change", function(e) {
+    selectedPeriod = e.target.value;
+    rebuildStudentsWithPoints();
+    renderAll();
+  });
+}
+
+if (leaderboardSortSelect) {
+  leaderboardSortSelect.addEventListener("change", function(e) {
+    leaderboardSort = e.target.value;
+    renderLeaderboard();
+  });
+}
+
+if (leaderboardSearch) {
+  leaderboardSearch.addEventListener("input", function() {
+    renderLeaderboard();
+  });
+}
+
+if (modalBackdrop) {
+  modalBackdrop.addEventListener("click", function(e) {
+    if (e.target === modalBackdrop) {
+      closeModal();
+    }
+  });
+}
+
+function bindIfExists(id, eventName, handler) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener(eventName, handler);
+  } else {
+    console.warn("Element not found:", id);
+  }
+}bindIfExists("closeModal", "click", closeModal);
+ bindIfExists("cancelBtn", "click", closeModal);
+ bindIfExists("saveBtn", "click", savePoints);
+ bindIfExists("undoBtn", "click", undoLast);
 
 loadAllData();
